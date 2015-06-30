@@ -3,6 +3,7 @@
 import json
 import os
 import platform
+import re
 import sublime
 import sublime_plugin
 from subprocess import Popen, PIPE
@@ -23,6 +24,19 @@ class CssCombCommand(sublime_plugin.TextCommand):
 
         if not self.has_selection():
             region = sublime.Region(0, self.view.size())
+            if syntax is 'vue':
+                regionBegin = self.view.find('<style.*>', 0)
+                regionEnd = self.view.find('</style>', regionBegin.end())
+
+                region = sublime.Region(regionBegin.end() + 1, regionEnd.begin() - 1)
+
+                syntaxRegexp = re.match("<style.*lang=[\'\"](.+)[\'\"].*>", self.view.substr(regionBegin))
+
+                if not syntaxRegexp is None:
+                    syntax = syntaxRegexp.group(1)
+                else:
+                    syntax = 'css'
+
             originalBuffer = self.view.substr(region)
             combed = self.comb(originalBuffer, syntax, config)
             if combed:
@@ -82,6 +96,8 @@ class CssCombCommand(sublime_plugin.TextCommand):
             return 'sass'
         if self.is_less():
             return 'less'
+        if self.is_vue():
+            return 'vue'
         if self.is_unsaved_buffer_without_syntax():
             return 'css'
         return False
@@ -117,3 +133,5 @@ class CssCombCommand(sublime_plugin.TextCommand):
     def is_less(self):
         return self.view.scope_name(0).startswith('source.less')
 
+    def is_vue(self):
+        return self.view.scope_name(0).startswith('source.vue') or self.view.file_name().endswith('.vue')
